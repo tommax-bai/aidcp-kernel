@@ -8,13 +8,25 @@
     "node": ">=20"
   },
   "exports": {
-    "./*": "./src/*"
+    "./*.js": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
   },
   "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "@types/pg": "^8.11.10"
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "pg": "^8.13.1"
   }
 }
