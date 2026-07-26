@@ -16,6 +16,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepare": "tsc -p tsconfig.json",
+    "test:scheduled-catalog": "npm run build && node --test test/scheduled-automation-catalog.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

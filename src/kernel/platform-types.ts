@@ -1,10 +1,11 @@
 /**
  * 平台能力声明的**纯类型契约**（kernel 段）。
  *
- * 只含类型/接口声明 + 两样不读注册表的判定件（见下）。**判据是「读不读 PLATFORM_REGISTRY」，
- * 不是「名字里有没有 platform」**：注册表数据（PLATFORM_REGISTRY、*_COMMENT_PROFILE 常量）与真正的
- * 读表函数（platformRegistryEntry / commentProfileForPlatform / availableScheduledAutomationActionsForPlatform
- * 等）按 §9「平台能力由 aidcp-automation 单写」留在 src/platform/registry.ts（automation）。
+ * 只含类型/接口声明 + 不读注册表的判定件（见下）。**判据是「读不读 PLATFORM_REGISTRY」，
+ * 不是「名字里有没有 platform」**：完整平台注册表数据（PLATFORM_REGISTRY、*_COMMENT_PROFILE 常量）
+ * 与其读表函数仍按 §9 由 aidcp-automation 单写。4b A2 唯一例外是
+ * scheduled-automation-catalog.ts 中被 api/automation 同时消费的封闭编译期子目录；它不包含
+ * 其它平台能力，也不含 HTTP、存储或运行时投影。
  *
  * 例外两项（change cloud-coupling-phase4-runtime-ports，实现体零 PLATFORM_REGISTRY 引用）：
  *   - `normalizePlatformId` —— 纯字符串别名映射，值域 PlatformId 本来就住在本文件；
@@ -192,8 +193,8 @@ export const SCHEDULED_GROUP_JOIN_DAILY_CAP_MAX = 10;
  * 排期自动化目录的窄读端口（change cloud-coupling-phase4-runtime-ports）。
  *
  * 三个方法逐一对应 api 侧内容排期存储今天的三处直调。刻意保持**同步**：三处都在目录逐行映射
- * 与写前校验的热路径上，改成 Promise 会把整条链染成 async；注册表是静态源码数据，
- * 拆进程后按启动期快照注入即可。实现单写在 automation 的 src/platform/registry.ts。
+ * 与写前校验的热路径上，改成 Promise 会把整条链染成 async。实现与封闭静态目录共同位于
+ * scheduled-automation-catalog.ts；api/automation 必须精确 pin 同一个 kernel 构建产物。
  */
 export interface ScheduledAutomationCatalogReader {
   /** 面板 catalog 的平台值：已知别名归一，未知值保留可诊断事实（不抛）。 */
