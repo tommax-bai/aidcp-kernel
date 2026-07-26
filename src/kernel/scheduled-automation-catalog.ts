@@ -1,150 +1,127 @@
 import {
   normalizePlatformId,
-  SCHEDULED_CONTACT_COMMENT_DAILY_CAP_MAX,
   SCHEDULED_CONTENT_DAILY_CAP_MAX,
+  SCHEDULED_CONTACT_COMMENT_DAILY_CAP_MAX,
   SCHEDULED_GROUP_JOIN_DAILY_CAP_MAX,
+  type ScheduledAutomationAction,
+  type ScheduledAutomationCatalogReader,
+  type ScheduledAutomationSupport,
 } from './platform-types.js';
-import type {
-  AvailableScheduledAutomationAction,
-  PlatformId,
+
+export const SCHEDULED_AUTOMATION_ACTIONS = Object.freeze(
+  ['post', 'comment', 'contact_comment', 'join_group'] as const satisfies readonly ScheduledAutomationAction[],
+);
+
+type MissingScheduledAutomationAction = Exclude<
   ScheduledAutomationAction,
-  ScheduledAutomationCatalogReader,
-  ScheduledAutomationSupport,
-} from './platform-types.js';
-
-/**
- * A2 is a closed compile-time catalog shared by api and automation.
- *
- * This is deliberately narrower than PLATFORM_REGISTRY: it contains only the
- * four scheduled actions consumed by ContentScheduleStore and has no IO,
- * projection state, or other platform capabilities.
- */
-export const SCHEDULED_AUTOMATION_ACTIONS = [
-  'post',
-  'comment',
-  'contact_comment',
-  'join_group',
-] as const satisfies readonly ScheduledAutomationAction[];
-
-export const SCHEDULED_AUTOMATION_CATALOG = {
-  xiaohongshu: {
-    post: {
-      supported: true,
-      allowedModes: ['review', 'auto_approve'],
-      maxDailyCap: SCHEDULED_CONTENT_DAILY_CAP_MAX,
-    },
-    comment: {
-      supported: true,
-      allowedModes: ['review', 'auto_approve'],
-      maxDailyCap: SCHEDULED_CONTENT_DAILY_CAP_MAX,
-    },
-    contact_comment: {
-      supported: true,
-      allowedModes: ['review', 'auto_approve'],
-      maxDailyCap: SCHEDULED_CONTACT_COMMENT_DAILY_CAP_MAX,
-    },
-    join_group: { supported: false, reason: 'no_group_concept' },
-  },
-  facebook: {
-    post: {
-      supported: true,
-      allowedModes: ['review'],
-      maxDailyCap: SCHEDULED_CONTENT_DAILY_CAP_MAX,
-    },
-    comment: {
-      supported: true,
-      allowedModes: ['review', 'auto_approve'],
-      maxDailyCap: SCHEDULED_CONTENT_DAILY_CAP_MAX,
-    },
-    contact_comment: {
-      supported: true,
-      allowedModes: ['review', 'auto_approve'],
-      maxDailyCap: SCHEDULED_CONTACT_COMMENT_DAILY_CAP_MAX,
-    },
-    join_group: {
-      supported: true,
-      allowedModes: [],
-      maxDailyCap: SCHEDULED_GROUP_JOIN_DAILY_CAP_MAX,
-    },
-  },
-  wechat_channels: {
-    post: { supported: false, reason: 'interaction_inbox_only' },
-    comment: { supported: false, reason: 'interaction_inbox_only' },
-    contact_comment: { supported: false, reason: 'interaction_inbox_only' },
-    join_group: { supported: false, reason: 'interaction_inbox_only' },
-  },
-} as const satisfies Record<
-  PlatformId,
-  Record<ScheduledAutomationAction, ScheduledAutomationSupport>
+  (typeof SCHEDULED_AUTOMATION_ACTIONS)[number]
 >;
+const scheduledAutomationActionUnionIsExhaustive: MissingScheduledAutomationAction extends never
+  ? true
+  : never = true;
+void scheduledAutomationActionUnionIsExhaustive;
 
-/** Known aliases normalize; unknown values remain diagnosable and fail closed downstream. */
-export function normalizePlatformForCatalog(raw: string | null | undefined): string {
-  try {
-    return normalizePlatformId(raw);
-  } catch {
-    return raw?.trim().toLowerCase() || 'unknown';
-  }
-}
+export const SCHEDULED_AUTOMATION_CATALOG = Object.freeze({
+  xiaohongshu: Object.freeze({
+    post: supported(['review', 'auto_approve'], SCHEDULED_CONTENT_DAILY_CAP_MAX),
+    comment: supported(['review', 'auto_approve'], SCHEDULED_CONTENT_DAILY_CAP_MAX),
+    contact_comment: supported(
+      ['review', 'auto_approve'],
+      SCHEDULED_CONTACT_COMMENT_DAILY_CAP_MAX,
+    ),
+    join_group: unsupported('no_group_concept'),
+  }),
+  facebook: Object.freeze({
+    post: supported(['review'], SCHEDULED_CONTENT_DAILY_CAP_MAX),
+    comment: supported(['review', 'auto_approve'], SCHEDULED_CONTENT_DAILY_CAP_MAX),
+    contact_comment: supported(
+      ['review', 'auto_approve'],
+      SCHEDULED_CONTACT_COMMENT_DAILY_CAP_MAX,
+    ),
+    join_group: supported([], SCHEDULED_GROUP_JOIN_DAILY_CAP_MAX),
+  }),
+  wechat_channels: Object.freeze({
+    post: unsupported('interaction_inbox_only'),
+    comment: unsupported('interaction_inbox_only'),
+    contact_comment: unsupported('interaction_inbox_only'),
+    join_group: unsupported('interaction_inbox_only'),
+  }),
+} as const satisfies Record<
+  'xiaohongshu' | 'facebook' | 'wechat_channels',
+  Record<ScheduledAutomationAction, ScheduledAutomationSupport>
+>);
 
-function catalogFor(
+export const SCHEDULED_AUTOMATION_CATALOG_READER: ScheduledAutomationCatalogReader = Object.freeze({
+  normalizeForCatalog: normalizePlatformForCatalog,
+  availableActions: availableScheduledAutomationActionsForPlatform,
+  declarationsFor: scheduledAutomationDeclarationsForPlatform,
+});
+
+export function normalizePlatformForCatalog(
   platform: string | null | undefined,
-): (typeof SCHEDULED_AUTOMATION_CATALOG)[PlatformId] | null {
-  let normalized: PlatformId;
+): string {
   try {
-    normalized = normalizePlatformId(platform);
+    return normalizePlatformId(platform);
   } catch {
-    return null;
+    return platform?.trim().toLowerCase() || 'unknown';
   }
-  return SCHEDULED_AUTOMATION_CATALOG[normalized];
 }
 
-function cloneSupport(support: ScheduledAutomationSupport): ScheduledAutomationSupport {
-  return support.supported
-    ? {
-        supported: true,
-        allowedModes: [...support.allowedModes],
-        maxDailyCap: support.maxDailyCap,
-      }
-    : { supported: false, reason: support.reason };
-}
-
-/** Unknown platforms are known-unsupported and therefore return no actions. */
 export function availableScheduledAutomationActionsForPlatform(
   platform: string | null | undefined,
-): AvailableScheduledAutomationAction[] {
-  const catalog = catalogFor(platform);
-  if (!catalog) return [];
-
+) {
+  const declaration = scheduledAutomationDeclarationsForPlatform(platform);
+  if (!declaration) return [];
   return SCHEDULED_AUTOMATION_ACTIONS.flatMap((action) => {
-    const support: ScheduledAutomationSupport = catalog[action];
+    const support = declaration[action];
     return support.supported
-      ? [{
-          action,
-          allowedModes: [...support.allowedModes],
-          maxDailyCap: support.maxDailyCap,
-        }]
+      ? [
+          {
+            action,
+            allowedModes: [...support.allowedModes],
+            maxDailyCap: support.maxDailyCap,
+          },
+        ]
       : [];
   });
 }
 
-/** Returns a detached declaration table so callers cannot mutate the shared catalog. */
 export function scheduledAutomationDeclarationsForPlatform(
   platform: string | null | undefined,
 ): Record<ScheduledAutomationAction, ScheduledAutomationSupport> | null {
-  const catalog = catalogFor(platform);
-  if (!catalog) return null;
-
-  return Object.fromEntries(
-    SCHEDULED_AUTOMATION_ACTIONS.map((action) => [
-      action,
-      cloneSupport(catalog[action]),
-    ]),
-  ) as Record<ScheduledAutomationAction, ScheduledAutomationSupport>;
+  try {
+    const source = SCHEDULED_AUTOMATION_CATALOG[normalizePlatformId(platform)];
+    return Object.fromEntries(
+      SCHEDULED_AUTOMATION_ACTIONS.map((action) => {
+        const support = source[action];
+        return [
+          action,
+          support.supported
+            ? {
+                supported: true,
+                allowedModes: [...support.allowedModes],
+                maxDailyCap: support.maxDailyCap,
+              }
+            : { supported: false, reason: support.reason },
+        ];
+      }),
+    ) as Record<ScheduledAutomationAction, ScheduledAutomationSupport>;
+  } catch {
+    return null;
+  }
 }
 
-export const SCHEDULED_AUTOMATION_CATALOG_READER: ScheduledAutomationCatalogReader = {
-  normalizeForCatalog: normalizePlatformForCatalog,
-  availableActions: availableScheduledAutomationActionsForPlatform,
-  declarationsFor: scheduledAutomationDeclarationsForPlatform,
-};
+function supported(
+  allowedModes: readonly ('review' | 'auto_approve')[],
+  maxDailyCap: number,
+): ScheduledAutomationSupport {
+  return Object.freeze({
+    supported: true,
+    allowedModes: Object.freeze([...allowedModes]),
+    maxDailyCap,
+  });
+}
+
+function unsupported(reason: string): ScheduledAutomationSupport {
+  return Object.freeze({ supported: false, reason });
+}

@@ -8,6 +8,10 @@ import {
   availableScheduledAutomationActionsForPlatform,
   scheduledAutomationDeclarationsForPlatform,
 } from '../dist/kernel/scheduled-automation-catalog.js';
+import {
+  isSyncReadFactPayload,
+  makeSyncReadFactEnvelope,
+} from '../dist/kernel/sync-read-facts.js';
 
 const PLATFORMS = ['xiaohongshu', 'facebook', 'wechat_channels'];
 const ACTIONS = ['post', 'comment', 'contact_comment', 'join_group'];
@@ -53,4 +57,58 @@ test('three reader methods preserve aliases, ordering, honesty, and detached val
     allowedModes: ['review', 'auto_approve'],
     maxDailyCap: 50,
   });
+});
+
+test('sync-read fact contracts are exported and reject malformed gate payloads', () => {
+  const presence = {
+    edgeCount: 0,
+    onlineEdgeCount: 0,
+    accountEdges: [],
+  };
+  assert.equal(isSyncReadFactPayload('edge_presence', presence), true);
+  assert.equal(
+    isSyncReadFactPayload('edge_presence', {
+      ...presence,
+      edgeCount: 0.5,
+    }),
+    false,
+  );
+  assert.equal(
+    isSyncReadFactPayload('content_schedule', {
+      global: null,
+      accounts: [{ accountId: 'a', autoEnabled: true }],
+    }),
+    false,
+  );
+  assert.equal(
+    isSyncReadFactPayload('automation_config_mirror_health', {
+      sourceService: 'automation',
+      asOf: 1,
+      enabled: true,
+      pollMs: 5_000,
+      entries: [{ mirrorKey: 'broken' }],
+    }),
+    false,
+  );
+  assert.deepEqual(
+    makeSyncReadFactEnvelope({
+      executionTarget: 'dev',
+      stream: 'edge_presence',
+      cursor: '1',
+      asOf: 10,
+      freshUntil: 20,
+      value: presence,
+    }),
+    {
+      contractVersion: 1,
+      executionTarget: 'dev',
+      factScope: 'target',
+      stream: 'edge_presence',
+      cursor: '1',
+      asOf: 10,
+      freshUntil: 20,
+      complete: true,
+      value: presence,
+    },
+  );
 });
