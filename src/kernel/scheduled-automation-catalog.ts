@@ -57,6 +57,55 @@ export const SCHEDULED_AUTOMATION_CATALOG_READER: ScheduledAutomationCatalogRead
   declarationsFor: scheduledAutomationDeclarationsForPlatform,
 });
 
+/**
+ * 新登记账号的自动化默认配置（change seed-facebook-automation-defaults-on-registration）。
+ *
+ * 纯数据、按平台声明。**只有列在这里的平台才种入**——没有条目 = 不种。这与目录本身「没声明就是
+ * 不支持」的语义一致，也让「新增平台要不要种」成为一次显式决定，而不是一个默认发生的行为。
+ *
+ * 取值依据（用户 2026-07-29 定）：总开关开、发帖 5、评论 20、加群 20。
+ *
+ * **联系评论刻意缺席**，两条理由都要保留：
+ *  ① 用户列举的是发帖 / 评论 / 加群三项，不含它；
+ *  ② 带「先加群再评论」标记的复合动作**只挂在联系评论上**（独立加群动作不带该标记）。不种它，
+ *     新账号就不会出现「加入新群后同一轮立即在该群评论」这一已知风险形态。
+ *  后续 change 若要给它加默认值，MUST 先处置那条复合动作。
+ *
+ * 审批模式：发帖 `review`（Facebook 发帖只允许需人审），评论 `auto_approve`（用户 2026-07-29 定）。
+ *
+ * 小红书与视频号刻意不列：本次诉求是 Facebook；视频号四个动作在上面的目录里全部 unsupported，
+ * 给它写任何正日上限都会被写前校验整块拒。
+ */
+export const NEW_ACCOUNT_AUTOMATION_DEFAULTS = Object.freeze({
+  facebook: Object.freeze({
+    schedule: Object.freeze({
+      autoEnabled: true,
+      // 发帖只能是需人审：免审对 Facebook 发帖在规格里就是禁用 / fail-closed，没得选。
+      postMode: 'review',
+      postDailyCap: 5,
+      // 评论取免审（用户 2026-07-29 决定，推翻本 change 初稿的需人审）。
+      // 可达性已核：环境级评论审批策略只能把来源模式**升**成免审，缺省 `source_rules` 时逐字沿用来源模式；
+      // 只有策略读取失败才 fail-closed 回需人审——失败方向安全。
+      // 后果如实记在这里：新账号一旦绑上人设并通过其余各闸，评论会直接发到平台、无人过目。
+      commentMode: 'auto_approve',
+      commentDailyCap: 20,
+    }),
+    joinGroup: Object.freeze({ enabled: true, dailyCap: 20 }),
+  }),
+} as const);
+
+/** 种入行的写入署名：与运营手工写入区分，便于事后追溯哪些行是自动种出来的。 */
+export const NEW_ACCOUNT_AUTOMATION_SEED_ACTOR = 'system:new-account-seed';
+
+/** 该平台的种入默认值；无条目返回 null（= 不种）。 */
+export function newAccountAutomationDefaultsFor(
+  platform: string | null | undefined,
+): (typeof NEW_ACCOUNT_AUTOMATION_DEFAULTS)['facebook'] | null {
+  return normalizePlatformForCatalog(platform) === 'facebook'
+    ? NEW_ACCOUNT_AUTOMATION_DEFAULTS.facebook
+    : null;
+}
+
 export function normalizePlatformForCatalog(
   platform: string | null | undefined,
 ): string {

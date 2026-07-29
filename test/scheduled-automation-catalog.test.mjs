@@ -43,7 +43,7 @@ test('three reader methods preserve aliases, ordering, honesty, and detached val
     { action: 'post', allowedModes: ['review'], maxDailyCap: 50 },
     { action: 'comment', allowedModes: ['review', 'auto_approve'], maxDailyCap: 50 },
     { action: 'contact_comment', allowedModes: ['review', 'auto_approve'], maxDailyCap: 10 },
-    { action: 'join_group', allowedModes: [], maxDailyCap: 10 },
+    { action: 'join_group', allowedModes: [], maxDailyCap: 50 },
   ]);
   assert.deepEqual(SCHEDULED_AUTOMATION_CATALOG_READER.availableActions('wechat_channels'), []);
   assert.deepEqual(SCHEDULED_AUTOMATION_CATALOG_READER.availableActions('future-platform'), []);
