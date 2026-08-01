@@ -1,6 +1,16 @@
 import type { DeploymentTarget } from '../deployment-target.js';
 import type { ConfigMirrorKey } from './config-mirror-bump-types.js';
 import {
+  FACEBOOK_COMMENT_MODE_WIRE_VALUES,
+  type FacebookCommentModeWire,
+} from './facebook-comment-config-types.js';
+import {
+  FACEBOOK_BASE_OPERATION_MODES,
+  FACEBOOK_CADENCE_SOURCES,
+  FACEBOOK_PRIMARY_BROWSE_SURFACES,
+  type FacebookOperationPolicyBaseProjection,
+} from './facebook-operation-policy-resolution.js';
+import {
   SYNC_READ_CONTRACT_VERSION,
   SYNC_READ_STREAM_DEFINITIONS,
   type SyncReadJson,
@@ -38,6 +48,7 @@ const CONFIG_MIRROR_KEYS: Readonly<Record<ConfigMirrorKey, true>> = {
   hot_lead_config: true,
   facebook_comment_config: true,
   facebook_group_join_automation_config: true,
+  facebook_operation_policy: true,
   account_status: true,
   client_environment_slow_start: true,
   client_environment_automation_gate: true,
@@ -133,10 +144,24 @@ export type FacebookCommentConfigSnapshot = {
       readonly url: string;
       readonly name?: string;
     }[];
-    readonly commentMode: string;
+    /**
+     * 线缆写法（复数 `templates`），**与领域写法单数 `template` 不同字面量**。
+     * 收窄自裸 `string`：跨进程消费方 MUST 经 `facebookCommentModeFromWire` 还原，
+     * 直接比较字面量会恒 false，且不报错——只是把模板正文静静换成生成式。
+     */
+    readonly commentMode: FacebookCommentModeWire;
     readonly commentModeConfigured: boolean;
     readonly commentTemplates: readonly string[];
   }[];
+};
+
+/**
+ * Facebook 运营基线快照：属主**已合成好的**逐环境基线投影（全局默认 ← 环境覆盖 ← legacy 回落）。
+ * 刻意不发三张原始表 —— 合成规则只许有一份，发不出成品就会逼消费方在本进程里再实现一遍。
+ * 只含**已配浏览面**的环境；未配的环境在此缺席，消费方据此报具名 blocker，MUST NOT 给默认面。
+ */
+export type FacebookOperationPolicySnapshot = {
+  readonly environments: readonly FacebookOperationPolicyBaseProjection[];
 };
 
 export type FacebookGroupJoinAutomationConfigSnapshot = {
@@ -161,6 +186,7 @@ export type SyncReadPayloadByStream = {
   hot_lead_config: HotLeadConfigSnapshot;
   facebook_comment_config: FacebookCommentConfigSnapshot;
   facebook_group_join_automation_config: FacebookGroupJoinAutomationConfigSnapshot;
+  facebook_operation_policy: FacebookOperationPolicySnapshot;
 };
 
 export interface SyncReadOwnerSnapshotSource {
@@ -366,6 +392,14 @@ export function isSyncReadFactPayload<S extends SyncReadStream>(
         hasUniqueStrings(value.accounts, 'accountId') &&
         value.accounts.every(isFacebookGroupJoinAccount)
       );
+    case 'facebook_operation_policy':
+      return (
+        isRecord(value) &&
+        hasExactKeys(value, ['environments']) &&
+        Array.isArray(value.environments) &&
+        hasUniqueStrings(value.environments, 'envKey') &&
+        value.environments.every(isFacebookOperationBaseline)
+      );
   }
 }
 
@@ -497,12 +531,82 @@ function isFacebookCommentAccount(value: unknown): boolean {
         (container.name === undefined ||
           typeof container.name === 'string'),
     ) &&
-    (value.commentMode === 'generated' ||
-      value.commentMode === 'templates') &&
+    isFacebookCommentModeWire(value.commentMode) &&
     typeof value.commentModeConfigured === 'boolean' &&
     Array.isArray(value.commentTemplates) &&
     value.commentTemplates.every(isNonEmptyString)
   );
+}
+
+/** 线缆写法校验：取 kernel 那一份取值表，MUST NOT 在此另写字面量（写死会与发布方悄悄漂开）。 */
+function isFacebookCommentModeWire(
+  value: unknown,
+): value is FacebookCommentModeWire {
+  return (
+    typeof value === 'string' &&
+    (FACEBOOK_COMMENT_MODE_WIRE_VALUES as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * 基线投影校验。三个枚举一律取 kernel 的取值表，MUST NOT 手抄字面量 ——
+ * 手抄一份名单拼错也照样编译过，本 change 已为此咬过两次。
+ */
+function isFacebookOperationBaseline(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    hasExactKeys(value, [
+      'envKey',
+      'primarySurface',
+      'surfaceRevision',
+      'baseMode',
+      'policyRevision',
+      'cadenceSource',
+      'rule',
+      'consumption',
+      'reels',
+      'updatedAt',
+      'updatedBy',
+    ]) &&
+    isNonEmptyString(value.envKey) &&
+    isOneOf(value.primarySurface, FACEBOOK_PRIMARY_BROWSE_SURFACES) &&
+    isNonNegativeInteger(value.surfaceRevision) &&
+    isOneOf(value.baseMode, FACEBOOK_BASE_OPERATION_MODES) &&
+    isNonNegativeInteger(value.policyRevision) &&
+    isOneOf(value.cadenceSource, FACEBOOK_CADENCE_SOURCES) &&
+    isNumberRecord(value.rule, ['viewsPerLike', 'joinEveryNRounds']) &&
+    isNumberRecord(value.consumption, [
+      'viewsPerLike',
+      'confirmedLikesPerJoin',
+      'confirmedJoinsPerComment',
+    ]) &&
+    isReelCadence(value.reels) &&
+    isNullableString(value.updatedAt) &&
+    isNullableString(value.updatedBy)
+  );
+}
+
+function isReelCadence(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    hasExactKeys(value, ['persona', 'slowStart', 'rule', 'consumption']) &&
+    isNumberRecord(value.persona, ['viewsPerLike', 'viewsPerFollow']) &&
+    isNumberRecord(value.slowStart, ['viewsPerFollow']) &&
+    isNumberRecord(value.rule, ['viewsPerFollow']) &&
+    isNumberRecord(value.consumption, ['viewsPerFollow'])
+  );
+}
+
+function isNumberRecord(value: unknown, keys: readonly string[]): boolean {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, keys) &&
+    keys.every((key) => isFiniteNumber(value[key]))
+  );
+}
+
+function isOneOf(value: unknown, allowed: readonly string[]): boolean {
+  return typeof value === 'string' && allowed.includes(value);
 }
 
 function isFacebookGroupJoinAccount(value: unknown): boolean {
