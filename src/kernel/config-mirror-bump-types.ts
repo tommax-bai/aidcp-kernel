@@ -10,7 +10,7 @@
  * 或反之。这是「静默丢失原子性」，没有任何错误、没有任何日志。
  *
  * 本文件把三样东西抬进 kernel，使 automation 侧的 store 不再 import api 属主的模块：
- *   1. `ConfigMirrorKey` —— 15 处镜像的闭集合（纯类型）。
+ *   1. `ConfigMirrorKey` —— 16 处镜像的闭集合（纯类型）。
  *   2. `MirrorVersionBumper` + `writeWithMirrorBump` —— 「业务写与失效信号同一笔提交」的抽象。
  *      **注意抽象的措辞**：它保证的是「同一笔提交」，不保证「写进版本表」。属主域各自注入自己的
  *      实现——api 侧直接推版本表（同库、同事务）；automation 侧写**本域**的事务型 outbox 行
@@ -25,7 +25,7 @@ import type pg from 'pg';
 import type { PgOwner } from './pg-owner-connection-resolver.js';
 
 /**
- * 全部进程内配置镜像的闭集合（15 处，描述符表在 `src/config/mirror-registry.ts`）。
+ * 全部进程内配置镜像的闭集合（16 处，描述符表在 `src/config/mirror-registry.ts`）。
  *
  * 新增一处镜像 MUST 在此登记：`CONFIG_MIRRORS` 是 `Record<ConfigMirrorKey, …>`，
  * 漏登记即 typecheck 失败（与两份 protocol.ts 的 `Record<MessageType,true>` 同款防漂移手法）。
@@ -38,6 +38,7 @@ export type ConfigMirrorKey =
   | 'pacing_floor_config'
   | 'session_config_global'
   | 'resume_config_global'
+  | 'restricted_policy_config'
   | 'persona_config'
   | 'content_schedule'
   | 'model_config'

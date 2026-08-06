@@ -41,6 +41,7 @@ const CONFIG_MIRROR_KEYS: Readonly<Record<ConfigMirrorKey, true>> = {
   pacing_floor_config: true,
   session_config_global: true,
   resume_config_global: true,
+  restricted_policy_config: true,
   persona_config: true,
   content_schedule: true,
   model_config: true,

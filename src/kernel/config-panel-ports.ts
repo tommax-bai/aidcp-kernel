@@ -226,3 +226,45 @@ export interface PanelResumeConfig {
   /** 写全局续场配置。校验不过整块拒（绝不部分落库 / 假成功）。写后回真态。 */
   set(patch: ResumeConfigPatchInput, updatedBy: string): Promise<ResumeConfigSetResult>;
 }
+
+/* ───────────────── 受限处置策略（restricted_policy_config，全局单例） ───────────────── */
+
+/**
+ * 受限处置模式（change restricted-policy-global-config）：
+ * - `browse_only`：受限只封互动、浏览照常（历史默认，零回归）；
+ * - `full_pause`：浏览也暂停（view 拒绝并带剩余等待时长，账号让出浏览器槽位）。
+ *
+ * 枚举值 console 侧 MUST 逐字对齐（有枚举漂移白屏前科），MUST NOT 各自转写。
+ */
+export type RestrictedPolicyMode = 'browse_only' | 'full_pause';
+
+/** 受限处置策略生效值 + 审计（GET /api/restricted-policy 形状）。 */
+export interface RestrictedPolicyView {
+  mode: RestrictedPolicyMode;
+  /** 受限自动恢复时长（小时，正整数）。 */
+  recoveryHours: number;
+  /** 是否存在库内覆盖（false=显示的是写死默认 browse_only / 72）。 */
+  overridden: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+/** PUT /api/restricted-policy 入参补丁（全局，无账号）。未传的字段保持原值（无原值则回落写死默认）。 */
+export interface RestrictedPolicyPatchInput {
+  mode?: RestrictedPolicyMode;
+  recoveryHours?: number;
+}
+
+export type RestrictedPolicySetResult =
+  | { ok: true; view: RestrictedPolicyView }
+  | { ok: false; reason: 'invalid_value' | 'no_valid_fields' };
+
+// 写入通道归属（change restricted-policy-global-config，复刻 resume 通路）：`PanelRestrictedPolicy`
+// 是取数侧持有的窄内部写接口契约，自动化侧实现（src/config/restricted-policy-facade.ts）并独占 store。
+// 后台编辑 MUST 走 console → 取数侧 → 自动化侧；**取数侧 MUST NOT 直写 restricted_policy_config**。
+export interface PanelRestrictedPolicy {
+  /** 受限处置策略生效值 + 审计（库无行以写死默认合成回显）。 */
+  getView(): Promise<RestrictedPolicyView>;
+  /** 写受限处置策略。非法值（未知模式 / 非正整数小时）整块拒，绝不静默落库。写后回真态。 */
+  set(patch: RestrictedPolicyPatchInput, updatedBy: string): Promise<RestrictedPolicySetResult>;
+}
