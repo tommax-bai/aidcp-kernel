@@ -71,7 +71,9 @@ export type OrchestrationCapability =
   | 'search'
   | 'group_join';
 
-export type IdentityCaptureCommand = 'identity.read_current' | 'identity.read_self_profile';
+// 词汇批 7（normalize-nonplatform-vocabulary）：identity 两条平行化（动词＋地点宾语）。
+// 能力串（identity_read_current_v1 等）与消息名刻意脱钩：握手协商串不随消息改名。
+export type IdentityCaptureCommand = 'identity.read_current_page' | 'identity.read_self_profile';
 
 export type IdentityCaptureStrategy =
   | {
