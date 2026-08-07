@@ -14,17 +14,23 @@ import {
 } from '../src/kernel/transport-gate-exemptions.js';
 
 test('租约取得与归还成对放行（只放行一头会一边堵一边通）', () => {
-  assert.equal(allowsTransportWhenGateUnknown('edge.task.acquire', null), true);
+  assert.equal(allowsTransportWhenGateUnknown('task.acquire', null), true);
   assert.equal(
-    allowsTransportWhenGateUnknown('edge.task.release', null),
+    allowsTransportWhenGateUnknown('task.release', null),
     true,
     '归还被扣住 = 浏览器槽位永不释放，这是把可自愈的阻塞做成死锁',
   );
 });
 
-test('验证码协助与详情页收尾照常放行', () => {
-  for (const type of ['captcha.assist.capture', 'captcha.assist.click', 'xiaohongshu.note.close', 'facebook.note.close', 'navigation.back']) {
+test('验证码协助与返回收尾照常放行', () => {
+  for (const type of ['captcha.assist.capture', 'captcha.assist.click', 'xiaohongshu.navigation.back', 'facebook.navigation.back']) {
     assert.equal(allowsTransportWhenGateUnknown(type, null), true, type);
+  }
+});
+
+test('改名后的旧名不再享有豁免（词汇批 6 直接切换、无别名）', () => {
+  for (const staleName of ['edge.task.acquire', 'edge.task.release', 'xiaohongshu.note.close', 'facebook.note.close', 'navigation.back']) {
+    assert.equal(allowsTransportWhenGateUnknown(staleName, null), false, staleName);
   }
 });
 
@@ -32,7 +38,7 @@ test('控制面与浏览器生命周期照常放行，真实平台动作与页�
   assert.equal(allowsTransportWhenGateUnknown('anything.else', 'automation_control'), true);
   assert.equal(allowsTransportWhenGateUnknown('anything.else', 'browser_lifecycle'), true);
   assert.equal(
-    allowsTransportWhenGateUnknown('interaction.like', 'platform_api_automation'),
+    allowsTransportWhenGateUnknown('wechat_channels.inbox.reply.send', 'platform_api_automation'),
     false,
     '停手的定义就是不放行**新的真实平台动作**；这一条放行了停手闸就等于没有',
   );
@@ -44,13 +50,12 @@ test('豁免名单只有那几条：它是「不放行会死锁」的清单，�
   assert.deepEqual(
     [...TRANSPORT_EXEMPT_WHEN_MIRROR_UNKNOWN],
     [
-      'edge.task.acquire',
-      'edge.task.release',
+      'task.acquire',
+      'task.release',
       'captcha.assist.capture',
       'captcha.assist.click',
-      'xiaohongshu.note.close',
-      'facebook.note.close',
-      'navigation.back',
+      'xiaohongshu.navigation.back',
+      'facebook.navigation.back',
     ],
     '名单越长，停手闸能停住的东西越少。新增成员 MUST 按「扣住它会造成死锁」这条判据说明理由',
   );

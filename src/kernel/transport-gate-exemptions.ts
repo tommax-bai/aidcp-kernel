@@ -31,16 +31,17 @@
  */
 export const TRANSPORT_EXEMPT_WHEN_MIRROR_UNKNOWN = [
   // 浏览器槽位的取得与**归还**：归还被扣住 = 槽位永不释放；两者成对放行才不会一头堵一头通。
-  'edge.task.acquire',
-  'edge.task.release',
+  // 词汇批 6（platformize-publish-navigation-vocabulary）：`edge.` 前缀冗余清理，`edge.task.*` → `task.*`。
+  'task.acquire',
+  'task.release',
   // 验证码协助：人在远端替账号解封的通道，扣住它等于把一个可自愈的阻塞做成死锁。
   'captcha.assist.capture',
   'captcha.assist.click',
-  // 详情页收尾：离开笔记 / 退回上一页，属自然结束路径，不是新的平台动作。
-  // 词汇批 4（platformize-browse-vocabulary）：关帖命令平台段化，两平台各留一条同构名。
-  'xiaohongshu.note.close',
-  'facebook.note.close',
-  'navigation.back',
+  // 详情页收尾：退回上一页，属自然结束路径，不是新的平台动作。
+  // 词汇批 6：`{p}.note.close` 从协议删除（云端零发送点，关弹层降回引擎内部子步骤），
+  // 返回命令平台段化为两条同构名（词汇批 4 先例）。
+  'xiaohongshu.navigation.back',
+  'facebook.navigation.back',
 ] as const;
 
 /**
