@@ -23,7 +23,7 @@ test('租约取得与归还成对放行（只放行一头会一边堵一边通�
 });
 
 test('验证码协助与详情页收尾照常放行', () => {
-  for (const type of ['captcha.assist.capture', 'captcha.assist.click', 'note.close', 'navigation.back']) {
+  for (const type of ['captcha.assist.capture', 'captcha.assist.click', 'xiaohongshu.note.close', 'facebook.note.close', 'navigation.back']) {
     assert.equal(allowsTransportWhenGateUnknown(type, null), true, type);
   }
 });
@@ -36,7 +36,7 @@ test('控制面与浏览器生命周期照常放行，真实平台动作与页�
     false,
     '停手的定义就是不放行**新的真实平台动作**；这一条放行了停手闸就等于没有',
   );
-  assert.equal(allowsTransportWhenGateUnknown('page.scroll', 'page_automation'), false);
+  assert.equal(allowsTransportWhenGateUnknown('xiaohongshu.feed.scroll', 'page_automation'), false);
   assert.equal(allowsTransportWhenGateUnknown('unknown.type', null), false);
 });
 
@@ -48,7 +48,8 @@ test('豁免名单只有那几条：它是「不放行会死锁」的清单，�
       'edge.task.release',
       'captcha.assist.capture',
       'captcha.assist.click',
-      'note.close',
+      'xiaohongshu.note.close',
+      'facebook.note.close',
       'navigation.back',
     ],
     '名单越长，停手闸能停住的东西越少。新增成员 MUST 按「扣住它会造成死锁」这条判据说明理由',

@@ -37,7 +37,9 @@ export const TRANSPORT_EXEMPT_WHEN_MIRROR_UNKNOWN = [
   'captcha.assist.capture',
   'captcha.assist.click',
   // 详情页收尾：离开笔记 / 退回上一页，属自然结束路径，不是新的平台动作。
-  'note.close',
+  // 词汇批 4（platformize-browse-vocabulary）：关帖命令平台段化，两平台各留一条同构名。
+  'xiaohongshu.note.close',
+  'facebook.note.close',
   'navigation.back',
 ] as const;
 
