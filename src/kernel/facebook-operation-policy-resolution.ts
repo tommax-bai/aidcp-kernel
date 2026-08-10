@@ -14,8 +14,10 @@
 export type FacebookBaseOperationMode = 'persona' | 'rule' | 'consumption';
 export type FacebookPrimaryBrowseSurface = 'feed' | 'reels';
 export type FacebookCadenceSource = 'global' | 'environment';
+/** 节奏解释模式（全局单选）：fixed=到 N 精确触发；probabilistic=每次合格事件独立掷 1/N。 */
+export type FacebookCadenceMode = 'fixed' | 'probabilistic';
 
-/** 取值表：校验器与投影方一律取这三份，MUST NOT 手抄字面量（抄错也照样编译过）。 */
+/** 取值表：校验器与投影方一律取这几份，MUST NOT 手抄字面量（抄错也照样编译过）。 */
 export const FACEBOOK_BASE_OPERATION_MODES = [
   'persona',
   'rule',
@@ -23,6 +25,7 @@ export const FACEBOOK_BASE_OPERATION_MODES = [
 ] as const;
 export const FACEBOOK_PRIMARY_BROWSE_SURFACES = ['feed', 'reels'] as const;
 export const FACEBOOK_CADENCE_SOURCES = ['global', 'environment'] as const;
+export const FACEBOOK_CADENCE_MODES = ['fixed', 'probabilistic'] as const;
 
 export type FacebookRuleOperationParameters = {
   viewsPerLike: number;
@@ -62,6 +65,11 @@ export type FacebookOperationPolicyBaseProjection = {
   baseMode: FacebookBaseOperationMode;
   policyRevision: number;
   cadenceSource: FacebookCadenceSource;
+  /**
+   * 节奏解释模式（全局单选，随基线逐环境下发）。**wire 上可选**：老 producer 不发该键，
+   * 消费方缺省 MUST 回落 'fixed'（= 既有行为，安全缺省）。producer 侧 MUST 显式赋值。
+   */
+  cadenceMode?: FacebookCadenceMode;
   rule: FacebookRuleOperationParameters;
   consumption: FacebookConsumptionOperationParameters;
   reels: FacebookGlobalReelCadenceParameters;

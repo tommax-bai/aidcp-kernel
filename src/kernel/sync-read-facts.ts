@@ -6,6 +6,7 @@ import {
 } from './facebook-comment-config-types.js';
 import {
   FACEBOOK_BASE_OPERATION_MODES,
+  FACEBOOK_CADENCE_MODES,
   FACEBOOK_CADENCE_SOURCES,
   FACEBOOK_PRIMARY_BROWSE_SURFACES,
   type FacebookOperationPolicyBaseProjection,
@@ -659,26 +660,32 @@ function isFacebookSlowStartPolicy(value: unknown): boolean {
   );
 }
 
+const FACEBOOK_OPERATION_BASELINE_KEYS = [
+  'envKey',
+  'primarySurface',
+  'surfaceRevision',
+  'baseMode',
+  'policyRevision',
+  'cadenceSource',
+  'rule',
+  'consumption',
+  'reels',
+  'updatedAt',
+  'updatedBy',
+] as const;
+
 /**
- * 基线投影校验。三个枚举一律取 kernel 的取值表，MUST NOT 手抄字面量 ——
+ * 基线投影校验。枚举一律取 kernel 的取值表，MUST NOT 手抄字面量 ——
  * 手抄一份名单拼错也照样编译过，本 change 已为此咬过两次。
+ * `cadenceMode` 为版本偏斜可选键（change facebook-cadence-probability-mode）：
+ * 老 producer 不发（11 键）与新 producer 发（12 键）都接受；发了就必须是合法枚举值。
  */
 function isFacebookOperationBaseline(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return (
-    hasExactKeys(value, [
-      'envKey',
-      'primarySurface',
-      'surfaceRevision',
-      'baseMode',
-      'policyRevision',
-      'cadenceSource',
-      'rule',
-      'consumption',
-      'reels',
-      'updatedAt',
-      'updatedBy',
-    ]) &&
+    (hasExactKeys(value, FACEBOOK_OPERATION_BASELINE_KEYS) ||
+      hasExactKeys(value, [...FACEBOOK_OPERATION_BASELINE_KEYS, 'cadenceMode'])) &&
+    (value.cadenceMode === undefined || isOneOf(value.cadenceMode, FACEBOOK_CADENCE_MODES)) &&
     isNonEmptyString(value.envKey) &&
     isOneOf(value.primarySurface, FACEBOOK_PRIMARY_BROWSE_SURFACES) &&
     isNonNegativeInteger(value.surfaceRevision) &&

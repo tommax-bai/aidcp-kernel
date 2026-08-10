@@ -286,3 +286,72 @@ test('automation health payload rejects an observation clock so change detection
     false,
   );
 });
+
+// ── facebook_operation_policy 基线的 cadenceMode 版本偏斜键集（change facebook-cadence-probability-mode）──
+
+function operationBaseline(extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    envKey: 'env-1',
+    primarySurface: 'feed',
+    surfaceRevision: 0,
+    baseMode: 'persona',
+    policyRevision: 3,
+    cadenceSource: 'global',
+    rule: { viewsPerLike: 5, joinEveryNRounds: 2 },
+    consumption: { viewsPerLike: 15, confirmedLikesPerJoin: 3, confirmedJoinsPerComment: 2 },
+    reels: {
+      persona: { viewsPerLike: 4, viewsPerFollow: 10 },
+      slowStart: { viewsPerLike: 15, viewsPerFollow: 15 },
+      rule: { viewsPerFollow: 15 },
+      consumption: { viewsPerFollow: 15 },
+    },
+    updatedAt: null,
+    updatedBy: null,
+    ...extra,
+  };
+}
+
+function operationPolicyPayload(baseline: Record<string, unknown>): Record<string, unknown> {
+  return { environments: [baseline], slowStart: { totalDays: 0, dailyCaps: [] } };
+}
+
+test('facebook_operation_policy baseline accepts both legacy 11-key and cadenceMode 12-key shapes', () => {
+  assert.equal(
+    isSyncReadFactPayload('facebook_operation_policy', operationPolicyPayload(operationBaseline())),
+    true,
+    '老 producer 不发 cadenceMode 必须继续通过',
+  );
+  assert.equal(
+    isSyncReadFactPayload(
+      'facebook_operation_policy',
+      operationPolicyPayload(operationBaseline({ cadenceMode: 'probabilistic' })),
+    ),
+    true,
+  );
+  assert.equal(
+    isSyncReadFactPayload(
+      'facebook_operation_policy',
+      operationPolicyPayload(operationBaseline({ cadenceMode: 'fixed' })),
+    ),
+    true,
+  );
+});
+
+test('facebook_operation_policy baseline rejects illegal cadenceMode value and stray extra keys', () => {
+  assert.equal(
+    isSyncReadFactPayload(
+      'facebook_operation_policy',
+      operationPolicyPayload(operationBaseline({ cadenceMode: 'random' })),
+    ),
+    false,
+    '发了就必须是合法枚举值',
+  );
+  assert.equal(
+    isSyncReadFactPayload(
+      'facebook_operation_policy',
+      operationPolicyPayload(operationBaseline({ cadenceMode: 'fixed', extra: 1 })),
+    ),
+    false,
+    '13 键(多余键)仍拒收',
+  );
+});

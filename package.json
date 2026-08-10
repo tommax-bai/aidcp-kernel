@@ -1,6 +1,6 @@
 {
   "name": "aidcp-kernel",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "description": "aidcp 云端三服务的共享契约层：纯类型 / 接口 / 常量 / 纯函数。禁含 SQL、HTTP、LLM 供应商标识符、模块级 Set/Map。",
